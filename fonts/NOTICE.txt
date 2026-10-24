@@ -1,0 +1,13 @@
+Glyph fonts embedded for the Matrix-style renderer:
+
+- matrix-kana.woff2
+  Subset of Droid Sans Fallback.
+  Copyright 2006–2010 Google Corp.
+  Licensed under the Apache License, Version 2.0.
+
+- matrix-latin.woff2
+  Subset of JetBrains Mono.
+  Copyright 2020 JetBrains s.r.o.
+  Licensed under the Apache License, Version 2.0.
+
+The full license text is in LICENSE-Apache-2.0.txt.
