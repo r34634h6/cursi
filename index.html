@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#000400">
+  <title>Der Code erschafft dich</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="effect-matrix">
+  <canvas id="view" aria-hidden="true"></canvas>
+  <div class="shade" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <p id="writing" hidden>Der Code schreibt dich</p>
+
+  <section id="gate" aria-labelledby="title">
+    <div class="panel">
+      <span class="corner tl" aria-hidden="true"></span>
+      <span class="corner tr" aria-hidden="true"></span>
+      <span class="corner bl" aria-hidden="true"></span>
+      <span class="corner br" aria-hidden="true"></span>
+      <p class="kicker">Lokales Signal</p>
+      <h1 id="title">Der Code<br>erschafft dich</h1>
+      <p class="lead">Wähl einen Effekt und gib die Kamera frei. Du siehst dich selbst, live daraus gebaut. Ein dunkler Hintergrund hinter dir macht die Figur klarer.</p>
+      <div class="effects" role="radiogroup" aria-label="Effekt">
+        <button type="button" class="chip is-on" data-effect="matrix" aria-pressed="true">Matrix</button>
+        <button type="button" class="chip" data-effect="plasma" aria-pressed="false">Plasma</button>
+        <button type="button" class="chip" data-effect="orbit" aria-pressed="false">Orbit</button>
+        <button type="button" class="chip" data-effect="glitch" aria-pressed="false">Glitch</button>
+        <button type="button" class="chip" data-effect="netz" aria-pressed="false">Netz</button>
+        <button type="button" class="chip" data-effect="staub" aria-pressed="false">Staub</button>
+      </div>
+      <button id="start" class="primary" type="button">Kamera freigeben</button>
+      <p id="error" class="error" role="alert" hidden></p>
+      <p class="fine">Das Bild bleibt in diesem Tab. Nichts wird gespeichert oder gesendet.</p>
+      <button id="demo" class="ghost" type="button">Vorschau ohne Kamera</button>
+    </div>
+  </section>
+
+  <footer id="hud" hidden>
+    <div class="effects" role="radiogroup" aria-label="Effekt">
+      <button type="button" class="chip is-on" data-effect="matrix" aria-pressed="true">Matrix</button>
+      <button type="button" class="chip" data-effect="plasma" aria-pressed="false">Plasma</button>
+      <button type="button" class="chip" data-effect="orbit" aria-pressed="false">Orbit</button>
+      <button type="button" class="chip" data-effect="glitch" aria-pressed="false">Glitch</button>
+      <button type="button" class="chip" data-effect="netz" aria-pressed="false">Netz</button>
+      <button type="button" class="chip" data-effect="staub" aria-pressed="false">Staub</button>
+    </div>
+    <p class="live"><i></i> Live</p>
+    <label id="cell-wrap">Zeichengröße <input id="cell" type="range" min="7" max="18" step="1" value="9"></label>
+    <label>Kontrast <input id="contrast" type="range" min="90" max="260" step="5" value="185"></label>
+    <label><span id="density-label">Regen</span> <input id="rain" type="range" min="25" max="100" step="1" value="78"></label>
+    <button id="full" type="button">Vollbild</button>
+    <button id="stop" type="button">Kamera aus</button>
+  </footer>
+
+  <script src="js/matrix.js" defer></script>
+</body>
+</html>
