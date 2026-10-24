@@ -14,8 +14,11 @@
   const stopBtn = document.getElementById("stop");
   const fullBtn = document.getElementById("full");
   const cellInput = document.getElementById("cell");
+  const cellWrap = document.getElementById("cell-wrap");
   const contrastInput = document.getElementById("contrast");
   const rainInput = document.getElementById("rain");
+  const densityLabel = document.getElementById("density-label");
+  const titleEl = document.getElementById("title");
 
   const ctx = view.getContext("2d", { alpha: false });
   const rainCanvas = document.createElement("canvas");
@@ -65,6 +68,37 @@
   let rows = 0;
   let exposure = { lo: 20, hi: 180 };
   let layout = null;
+  let effect = "matrix";
+  let wipe = true;
+  const particles = [];
+  let particleCursor = 0;
+  const EFFECT_IDS = ["matrix", "plasma", "orbit", "glitch", "netz", "staub"];
+  const EFFECT_TITLES = {
+    matrix: "Der Code<br>erschafft dich",
+    plasma: "Du<br>brennst",
+    orbit: "Du gerätst<br>in den Orbit",
+    glitch: "Das Signal<br>bricht auf",
+    netz: "Du wirst<br>verbunden",
+    staub: "Du löst<br>dich auf",
+  };
+  const EFFECT_COPY = {
+    matrix: "Der Code schreibt dich",
+    plasma: "Du brennst",
+    orbit: "Du gerätst in den Orbit",
+    glitch: "Das Signal bricht auf",
+    netz: "Du wirst verbunden",
+    staub: "Du löst dich auf",
+  };
+  const BACKDROP = {
+    matrix: "#000400",
+    plasma: "#140602",
+    orbit: "#05010f",
+    glitch: "#07040c",
+    netz: "#02060e",
+    staub: "#100c06",
+  };
+
+  for (let i = 0; i < 700; i += 1) particles.push({ life: 0 });
 
   function clamp(v, a, b) {
     return Math.max(a, Math.min(b, v));
@@ -575,6 +609,313 @@
     ctx.globalAlpha = 1;
   }
 
+  function spotsFor(withEchoes) {
+    const center = { x: layout.figX, y: layout.figY, w: layout.figW, h: layout.figH, gain: 1 };
+    if (!withEchoes) return [center];
+    return [
+      center,
+      { x: layout.left.x, y: layout.left.y, w: layout.left.w, h: layout.left.h, gain: 0.5 },
+      { x: layout.right.x, y: layout.right.y, w: layout.right.w, h: layout.right.h, gain: 0.5 },
+    ];
+  }
+
+  function takeParticle() {
+    for (let n = 0; n < 16; n += 1) {
+      const p = particles[particleCursor];
+      particleCursor = (particleCursor + 1) % particles.length;
+      if (p.life <= 0) return p;
+    }
+    if (particles.length < 2800) {
+      const p = { life: 0 };
+      particles.push(p);
+      return p;
+    }
+    return particles[particleCursor];
+  }
+
+  function emit(x, y, kind, gain) {
+    const p = takeParticle();
+    p.x = x;
+    p.y = y;
+    p.kind = kind;
+    p.life = 1;
+    p.gain = gain;
+    if (kind === "plasma") {
+      p.vx = (Math.random() - 0.5) * 36;
+      p.vy = -50 - Math.random() * 180;
+      p.decay = 0.7 + Math.random() * 0.9;
+      p.size = (1.6 + Math.random() * 4.2) * dpr * Math.max(0.4, gain);
+      p.hue = 12 + Math.random() * 38;
+      return;
+    }
+    if (kind === "orbit") {
+      p.spin = (90 + Math.random() * 200) * (Math.random() < 0.5 ? -1 : 1);
+      p.decay = 0.32 + Math.random() * 0.4;
+      p.size = (1.3 + Math.random() * 2.6) * dpr;
+      p.hue = (performance.now() * 0.04 + Math.random() * 90) % 360;
+      p.vx = 0;
+      p.vy = 0;
+      return;
+    }
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 16 + Math.random() * 110;
+    p.vx = Math.cos(angle) * speed;
+    p.vy = Math.sin(angle) * speed * 0.7;
+    p.decay = 0.25 + Math.random() * 0.45;
+    p.size = (1 + Math.random() * 2.4) * dpr;
+    p.hue = Math.random() < 0.18 ? 0 : 34 + Math.random() * 22;
+  }
+
+  function spawnAmbient(kind, count) {
+    for (let i = 0; i < count; i += 1) {
+      emit(Math.random() * width, Math.random() * height, kind, 0.4);
+    }
+  }
+
+  function spawnFromField(kind) {
+    if (!cols || !rows) return;
+    const spots = spotsFor(true);
+    const center = spots[0];
+    const density = Number(rainInput.value) / 100;
+    const stride = density > 0.75 ? 2 : 3;
+    const limit = Math.max(1, Math.floor(reveal * rows));
+    let made = 0;
+    const cap = reduced ? 220 : 640;
+    for (let y = 0; y < limit; y += stride) {
+      for (let x = 0; x < cols; x += stride) {
+        const energy = field[y * cols + x];
+        if (energy < 0.32 || Math.random() > 0.4 + density * 0.45) continue;
+        const sx = center.x + ((x + 0.5) / cols) * center.w;
+        const sy = center.y + ((y + 0.5) / rows) * center.h;
+        emit(sx, sy, kind, 0.55 + energy * 0.8);
+        if (Math.random() < 0.22) {
+          const echo = spots[1 + ((Math.random() * 2) | 0)];
+          emit(
+            echo.x + ((x + 0.5) / cols) * echo.w,
+            echo.y + ((y + 0.5) / rows) * echo.h,
+            kind,
+            echo.gain * energy
+          );
+        }
+        made += 1;
+        if (made >= cap) return;
+      }
+    }
+  }
+
+  function stepParticles(dt, now, kind) {
+    const cx = layout.figX + layout.figW * 0.5;
+    const cy = layout.figY + layout.figH * 0.4;
+    const motion = reduced ? 0.4 : 1;
+    for (let i = 0; i < particles.length; i += 1) {
+      const p = particles[i];
+      if (p.life <= 0 || p.kind !== kind) continue;
+      if (kind === "plasma") {
+        p.vy -= 70 * dt;
+        p.x += (p.vx + Math.sin(now * 0.004 + p.y * 0.02) * 30) * dt * motion;
+        p.y += p.vy * dt * motion;
+      } else if (kind === "orbit") {
+        const dx = p.x - cx;
+        const dy = p.y - cy;
+        const len = Math.hypot(dx, dy) + 16;
+        p.x += ((-dy / len) * p.spin - dx * 0.28) * dt * motion;
+        p.y += ((dx / len) * p.spin - dy * 0.28) * dt * motion;
+      } else {
+        p.vx += Math.sin(now * 0.0015 + p.y * 0.012) * 46 * dt;
+        p.vy += Math.cos(now * 0.0012 + p.x * 0.01) * 32 * dt;
+        p.x += p.vx * dt * motion;
+        p.y += p.vy * dt * motion;
+      }
+      p.life -= p.decay * dt;
+      if (p.y < -30 || p.y > height + 40 || p.x < -40 || p.x > width + 40) p.life = 0;
+    }
+  }
+
+  function drawParticles(kind) {
+    ctx.save();
+    ctx.globalCompositeOperation = kind === "staub" ? "source-over" : "lighter";
+    for (let i = 0; i < particles.length; i += 1) {
+      const p = particles[i];
+      if (p.life <= 0 || p.kind !== kind) continue;
+      const light = kind === "plasma" ? 58 + p.life * 38 : kind === "staub" ? 70 : 64 + p.life * 18;
+      const sat = kind === "staub" && p.hue < 1 ? 0 : 100;
+      ctx.globalAlpha = Math.max(0, p.life) * Math.min(1, p.gain || 1);
+      ctx.fillStyle = `hsl(${p.hue} ${sat}% ${light}%)`;
+      const size = p.size * (kind === "plasma" ? 0.55 + p.life : 1);
+      ctx.fillRect(p.x, p.y, size, size);
+    }
+    ctx.restore();
+  }
+
+  function drawGlitchAmbient(now) {
+    ctx.save();
+    for (let i = 0; i < 18; i += 1) {
+      const y = (now * 0.05 * (i % 2 ? 1 : -1) + i * 67) % height;
+      ctx.globalAlpha = 0.22;
+      ctx.fillStyle = i % 2 ? "#ff2f86" : "#3dfff2";
+      ctx.fillRect(-20, y < 0 ? y + height : y, width + 40, Math.max(1, dpr));
+    }
+    ctx.restore();
+  }
+
+  function drawGlitch(now) {
+    if (!sample.width || !cols) return;
+    const spots = spotsFor(true);
+    const bands = 24;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    spots.forEach((spot, index) => {
+      for (let i = 0; i < bands; i += 1) {
+        const y0 = Math.floor((i * rows) / bands);
+        if (y0 > reveal * rows) continue;
+        const y1 = Math.min(rows, Math.max(y0 + 1, Math.floor(((i + 1) * rows) / bands)));
+        let energy = 0;
+        let seen = 0;
+        for (let y = y0; y < y1; y += 1) {
+          for (let x = 0; x < cols; x += 3) {
+            energy += field[y * cols + x];
+            seen += 1;
+          }
+        }
+        energy = seen ? energy / seen : 0;
+        const sy = Math.floor((i * sample.height) / bands);
+        const sh = Math.max(1, Math.ceil(sample.height / bands));
+        const dy = spot.y + (i * spot.h) / bands;
+        const dh = spot.h / bands + dpr;
+        const wild = energy > 0.18
+          ? (Math.sin(now * 0.02 + i * 2.1) * 54 + (((now / 70) | 0) + i * 13) % 19 - 9) * dpr * spot.gain
+          : Math.sin(now * 0.002 + i) * 8 * dpr;
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = index === 0 ? 0.92 : 0.38;
+        ctx.drawImage(sample, 0, sy, sample.width, sh, spot.x + wild, dy, spot.w, dh);
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = index === 0 ? 0.5 : 0.22;
+        ctx.drawImage(sample, 0, sy, sample.width, sh, spot.x + wild + 12 * dpr, dy, spot.w, dh);
+      }
+    });
+    const spot = spots[0];
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 0.85;
+    for (let n = 0; n < 7; n += 1) {
+      const sw = 3 + ((Math.random() * 16) | 0);
+      const sh = 2 + ((Math.random() * 6) | 0);
+      const sx = (Math.random() * Math.max(1, sample.width - sw)) | 0;
+      const sy = (Math.random() * Math.max(1, sample.height - sh)) | 0;
+      ctx.drawImage(
+        sample,
+        sx,
+        sy,
+        sw,
+        sh,
+        spot.x + Math.random() * spot.w,
+        spot.y + Math.random() * spot.h * reveal,
+        sw * (spot.w / sample.width),
+        sh * (spot.h / sample.height)
+      );
+    }
+    ctx.restore();
+  }
+
+  function drawNetzAmbient(now) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.strokeStyle = "rgba(130, 210, 255, 0.28)";
+    ctx.lineWidth = Math.max(1, dpr);
+    const cx = width * 0.5;
+    const cy = height * 0.46;
+    ctx.beginPath();
+    for (let i = 0; i <= 22; i += 1) {
+      const angle = (i / 22) * Math.PI * 2 + now * 0.00025;
+      const radius = (0.16 + (i % 4) * 0.035) * Math.min(width, height);
+      const x = cx + Math.cos(angle) * radius * 1.35;
+      const y = cy + Math.sin(angle * 1.35) * radius;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawNetz() {
+    if (!cols || !rows) return;
+    const spot = spotsFor(false)[0];
+    const nodes = [];
+    const stepX = Math.max(1, Math.floor(cols / 22));
+    const stepY = Math.max(1, Math.floor(rows / 30));
+    const limit = Math.max(1, Math.floor(reveal * rows));
+    for (let y = 0; y < limit; y += stepY) {
+      for (let x = 0; x < cols; x += stepX) {
+        const energy = field[y * cols + x];
+        if (energy < 0.4) continue;
+        nodes.push({
+          x: spot.x + ((x + 0.5) / cols) * spot.w,
+          y: spot.y + ((y + 0.5) / rows) * spot.h,
+          e: energy,
+        });
+        if (nodes.length >= 100) break;
+      }
+      if (nodes.length >= 100) break;
+    }
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.lineWidth = Math.max(1, dpr);
+    const reach = 86 * dpr;
+    const reachSq = reach * reach;
+    for (let i = 0; i < nodes.length; i += 1) {
+      for (let j = i + 1; j < nodes.length; j += 1) {
+        const dx = nodes[i].x - nodes[j].x;
+        const dy = nodes[i].y - nodes[j].y;
+        if (dx * dx + dy * dy > reachSq) continue;
+        ctx.strokeStyle = `rgba(160, 230, 255, ${0.12 + nodes[i].e * 0.4})`;
+        ctx.beginPath();
+        ctx.moveTo(nodes[i].x, nodes[i].y);
+        ctx.lineTo(nodes[j].x, nodes[j].y);
+        ctx.stroke();
+      }
+    }
+    const bolts = reduced ? 1 : 3;
+    ctx.strokeStyle = "rgba(235, 250, 255, 0.9)";
+    for (let b = 0; b < bolts && nodes.length > 2; b += 1) {
+      const from = nodes[(Math.random() * nodes.length) | 0];
+      const to = nodes[(Math.random() * nodes.length) | 0];
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      for (let s = 1; s <= 6; s += 1) {
+        const t = s / 6;
+        ctx.lineTo(
+          from.x + (to.x - from.x) * t + (Math.random() - 0.5) * 34 * dpr,
+          from.y + (to.y - from.y) * t + (Math.random() - 0.5) * 34 * dpr
+        );
+      }
+      ctx.stroke();
+    }
+    for (let i = 0; i < nodes.length; i += 1) {
+      const node = nodes[i];
+      const size = (2.2 + node.e * 3.4) * dpr;
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = node.e > 0.78 ? "#ffffff" : "#9be7ff";
+      ctx.fillRect(node.x - size * 0.5, node.y - size * 0.5, size, size);
+    }
+    ctx.restore();
+  }
+
+  function setEffect(id) {
+    if (!EFFECT_IDS.includes(id)) return;
+    effect = id;
+    wipe = true;
+    for (let i = 0; i < particles.length; i += 1) particles[i].life = 0;
+    document.body.className = `effect-${id}`;
+    document.querySelectorAll("[data-effect]").forEach((button) => {
+      const on = button.dataset.effect === id;
+      button.classList.toggle("is-on", on);
+      button.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    titleEl.innerHTML = EFFECT_TITLES[id];
+    writing.textContent = EFFECT_COPY[id];
+    densityLabel.textContent = id === "matrix" ? "Regen" : "Dichte";
+    cellWrap.hidden = id !== "matrix";
+  }
+
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
@@ -587,19 +928,43 @@
       if (writing.hidden === false && reveal >= 1) writing.hidden = true;
     }
 
-    ctx.fillStyle = "#000400";
-    ctx.fillRect(0, 0, width, height);
-    ctx.imageSmoothingEnabled = true;
-    drawTunnel(now, dt);
-    drawVines(now);
-    drawRain(dt);
-    ctx.drawImage(rainCanvas, 0, 0);
-    if (sourceReady()) {
-      drawFigures();
-      drawFrontHeads();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+    if (wipe || effect !== "staub") {
+      ctx.fillStyle = BACKDROP[effect];
+      ctx.fillRect(0, 0, width, height);
+      wipe = false;
+    } else {
+      ctx.fillStyle = "rgba(8, 6, 2, 0.2)";
+      ctx.fillRect(0, 0, width, height);
     }
-    drawSparks(dt);
-    drawForeground(now);
+    ctx.imageSmoothingEnabled = true;
+
+    if (effect === "matrix") {
+      drawTunnel(now, dt);
+      drawVines(now);
+      drawRain(dt);
+      ctx.drawImage(rainCanvas, 0, 0);
+      if (sourceReady()) {
+        drawFigures();
+        drawFrontHeads();
+      }
+      drawSparks(dt);
+      drawForeground(now);
+    } else if (effect === "glitch") {
+      drawGlitchAmbient(now);
+      if (sourceReady()) drawGlitch(now);
+    } else if (effect === "netz") {
+      drawNetzAmbient(now);
+      if (sourceReady()) drawNetz();
+    } else {
+      const density = Number(rainInput.value) / 78;
+      const ambient = Math.round((reduced ? 10 : 28) * density);
+      spawnAmbient(effect, sourceReady() ? Math.round(ambient * 0.4) : ambient);
+      if (sourceReady()) spawnFromField(effect);
+      stepParticles(dt, now, effect);
+      drawParticles(effect);
+    }
     requestAnimationFrame(frame);
   }
 
@@ -712,10 +1077,18 @@
     document.addEventListener("fullscreenchange", () => {
       fullBtn.textContent = document.fullscreenElement ? "Fenster" : "Vollbild";
     });
+    document.addEventListener("click", (event) => {
+      const button = event.target instanceof Element ? event.target.closest("[data-effect]") : null;
+      if (!button) return;
+      setEffect(button.dataset.effect);
+    });
     window.addEventListener("keydown", (event) => {
+      if (event.target instanceof HTMLInputElement) return;
       if (event.key.toLowerCase() === "f" && mode !== "gate") {
         toggleFull().catch(() => {});
       }
+      const index = Number(event.key) - 1;
+      if (index >= 0 && index < EFFECT_IDS.length) setEffect(EFFECT_IDS[index]);
     });
   }
 
@@ -728,6 +1101,8 @@
       console.warn(err);
     }
     buildAtlas();
+    const requested = new URLSearchParams(location.search).get("effect");
+    if (requested) setEffect(requested);
     requestAnimationFrame(frame);
     if (location.hash === "#demo") startDemo();
   }

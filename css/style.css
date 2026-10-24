@@ -150,11 +150,118 @@ h1 {
 }
 
 .lead {
-  margin: 1.15rem 0 1.4rem;
+  margin: 1.15rem 0 1rem;
   max-width: 36rem;
   color: var(--dim);
   font-size: 0.98rem;
   line-height: 1.55;
+}
+
+.effects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 1.15rem;
+}
+
+.chip {
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: transparent;
+  color: var(--dim);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font: inherit;
+  font-size: 0.72rem;
+  padding: 0.42rem 0.6rem;
+}
+
+.chip.is-on,
+.chip:hover,
+.chip:focus-visible {
+  border-color: var(--green);
+  background: var(--green);
+  color: var(--ink);
+  outline: none;
+}
+
+#hud .effects {
+  flex: 1 1 100%;
+  margin: 0;
+}
+
+body.effect-plasma {
+  --green: #ff8a2a;
+  --mint: #ffe1c2;
+  --dim: #ffb27a;
+  --ink: #1a0800;
+  background: #120600;
+}
+
+body.effect-plasma .shade {
+  background:
+    radial-gradient(ellipse at 50% 62%, rgba(255, 90, 20, 0.2), transparent 46%),
+    radial-gradient(ellipse at 50% 50%, transparent 42%, rgba(0, 0, 0, 0.58) 100%);
+}
+
+body.effect-orbit {
+  --green: #7af0ff;
+  --mint: #efe7ff;
+  --dim: #c7b6ff;
+  --ink: #070014;
+  background: #050010;
+}
+
+body.effect-orbit .shade {
+  background:
+    radial-gradient(ellipse at 50% 46%, rgba(120, 80, 255, 0.22), transparent 42%),
+    radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.62) 100%);
+}
+
+body.effect-glitch {
+  --green: #ff4d8d;
+  --mint: #d9fff8;
+  --dim: #9ef6ff;
+  --ink: #14020c;
+  background: #07040c;
+}
+
+body.effect-glitch .shade {
+  background:
+    radial-gradient(ellipse at 48% 46%, rgba(255, 40, 120, 0.14), transparent 36%),
+    radial-gradient(ellipse at 54% 50%, rgba(0, 220, 255, 0.1), transparent 42%),
+    radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.6) 100%);
+}
+
+body.effect-netz {
+  --green: #7ee7ff;
+  --mint: #e7fbff;
+  --dim: #9fdfff;
+  --ink: #021018;
+  background: #02060c;
+}
+
+body.effect-netz .shade {
+  background:
+    radial-gradient(ellipse at 50% 48%, rgba(80, 180, 255, 0.16), transparent 44%),
+    radial-gradient(ellipse at 50% 50%, transparent 42%, rgba(0, 0, 0, 0.6) 100%);
+}
+
+body.effect-staub {
+  --green: #ffd36a;
+  --mint: #fff4d2;
+  --dim: #ffe0a0;
+  --ink: #140e04;
+  background: #0c0804;
+}
+
+body.effect-staub .shade {
+  background:
+    radial-gradient(ellipse at 50% 58%, rgba(255, 190, 70, 0.16), transparent 46%),
+    radial-gradient(ellipse at 50% 50%, transparent 42%, rgba(0, 0, 0, 0.58) 100%);
+}
+
+body:not(.effect-matrix) .scanlines {
+  opacity: 0.05;
 }
 
 button {

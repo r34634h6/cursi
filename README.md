@@ -1,6 +1,6 @@
 # Der Code erschafft dich
 
-Eine lokale Seite. Die Kamera bleibt im Browser: dein Bild wird live aus fallendem Code geschrieben und steht als leuchtende Figur in einem grünen Korridor.
+Eine lokale Seite. Die Kamera bleibt im Browser. Du wählst einen Effekt, und dein Bild wird live daraus gebaut: Matrix-Code, Plasma, Orbit, Glitch, Netz oder Staub.
 
 ## Start
 
